@@ -38,8 +38,46 @@ GCL.L = {
     UI_BTN_MARK_PAID = "Mark Paid",
     UI_BTN_REFRESH = "Refresh",
     UI_BTN_CLOSE = "Close",
+    UI_BTN_MAIL = "Mail",
+    UI_BTN_CREDIT = "Credit",
+    UI_BTN_EXPORT = "Export",
 
     UI_EMPTY = "No consumable drops recorded yet.",
     UI_STALE_TAG = "|cFFFFAA00stale|r",
     UI_NOPRICE_TAG = "|cFFFF6060no price|r",
+
+    UI_EXPORT_TITLE = "Guild Consumable Ledger — Export",
+    UI_EXPORT_HINT = "Click in the box, Ctrl+A to select all, Ctrl+C to copy.",
+    UI_EXPORT_FORMAT_TEXT = "Text",
+
+    UI_MEMBER_TITLE = "My Contributions",
+    UI_SETTINGS_TITLE = "Guild Consumable Ledger — Settings",
+    UI_SETTINGS_CATEGORIES = "Tracked categories",
+    UI_SETTINGS_OTHER = "Other",
+    UI_SETTINGS_HANDOUT = "Track mail / trade handouts",
+    UI_SETTINGS_COMMS = "Sync via guild addon channel",
+    UI_SETTINGS_MULTIPLIER = "Cost multiplier",
+
+    UI_LEARN_TITLE = "Learn a new consumable spell",
+    UI_LEARN_HINT = "Type the recipe name from RecipeMap, then click Save.",
+    UI_BTN_SAVE = "Save",
+    UI_BTN_CANCEL = "Cancel",
+
+    LEARN_ACTIVE = "Learn mode active for 5 minutes — cast an unknown consumable spell.",
+    LEARN_SAVED = "Mapped spell %d -> %s.",
+    LEARN_UNKNOWN = "Recipe '%s' not in RecipeMap.",
+
+    SLASH_SETTINGS = "  settings       - open settings panel",
+    SLASH_MINE = "  mine           - show my own contributions",
+    SLASH_LEARN = "  learn          - learn an unknown spellID for the next 5 minutes",
+    SLASH_SETTLE = "  settle <name>  - bulk-credit unpaid entries for <name>",
+
+    MAIL_SUBJECT_PREFIX = "Consumable reimbursement",
+    MAIL_PREFILLED = "Mail prefilled — review then click Send.",
+    MAIL_QUEUED = "Visit a mailbox to send the prefilled mail.",
+    MAIL_ALREADY_PAID = "Entry is already settled.",
+    MAIL_PENDING_REPLACED = "Replacing earlier pending mail (only one queue slot).",
+    MAIL_MONEY_CAPPED = "Cost %s exceeds the prefill ceiling — left mail money empty for officer to set.",
+    LOG_CREDITED_BULK = "Credited %d entries totaling %s.",
+    LOG_CREDITED_NONE = "No unpaid entries found for '%s'.",
 }

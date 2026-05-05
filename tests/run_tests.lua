@@ -66,6 +66,16 @@ loadModule("Pricing/AuctionatorAdapter.lua")
 loadModule("Pricing/CostCalculator.lua")
 loadModule("Ledger/LedgerStore.lua")
 loadModule("Ledger/BalanceCalculator.lua")
+loadModule("Reimbursement/BankCredit.lua")
+loadModule("Reimbursement/ReportExporter.lua")
+loadModule("Core/Comms.lua")
+loadModule("Tracking/HandoutTracker.lua")
+
+-- Phase 4 modules whose pure-logic surface is testable. We skip the UI-frame
+-- builders by only exercising the module's pure helpers.
+loadModule("UI/MemberPanel.lua")
+loadModule("UI/SettingsPanel.lua")
+loadModule("UI/LearnDialog.lua")
 
 GCL:InitDB()
 GCL.AuctionatorAdapter:Probe()
@@ -234,6 +244,373 @@ do
     -- After previous test: 2 unpaid entries totaling 675000 for Alchy
     eq("recomputed owed", store.balances["Alchy-TestRealm"].owed, 675000)
     eq("recomputed paid", store.balances["Alchy-TestRealm"].paid, 0)
+end
+
+local function resetStore()
+    local store = GCL:GetRealmStore()
+    store.entries = {}
+    store.balances = {}
+end
+
+local function recordTwoUnpaid()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    for i = 1, 2 do
+        local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+        GCL.LedgerStore:Record({
+            providerGUID = "Player-1-AAA",
+            providerName = "Alchy-TestRealm",
+            category = "feast",
+            spellID = 457284,
+            recipeName = "Feast of the Midnight Masquerade",
+            matsCost = cost,
+            pricingSnapshot = snap,
+        })
+    end
+    stubs.clearMockPrices()
+end
+
+suite("BankCredit: Credit single entry")
+do
+    resetStore()
+    recordTwoUnpaid()
+    local store = GCL:GetRealmStore()
+    local id = store.entries[1].id
+    local ok_ = GCL.BankCredit:Credit(id)
+    ok("BankCredit:Credit returned true", ok_ == true)
+    eq("status -> credited", store.entries[1].paymentStatus, "credited")
+    eq("balance owed reduced by entry cost",
+        store.balances["Alchy-TestRealm"].owed, 225000)  -- still 1 unpaid x 225000
+    eq("balance paid increased", store.balances["Alchy-TestRealm"].paid, 225000)
+end
+
+suite("BankCredit: Credit unknown id is no-op")
+do
+    local ok_ = GCL.BankCredit:Credit("does-not-exist")
+    ok("returns false on missing id", ok_ == false)
+end
+
+suite("BankCredit: SettleAll bulk-credits unpaid for provider")
+do
+    resetStore()
+    recordTwoUnpaid()
+    -- Add one entry for a different provider that should NOT be touched.
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-9-ZZZ",
+        providerName = "Other-TestRealm",
+        category = "feast",
+        spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost,
+        pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+
+    local count, total = GCL.BankCredit:SettleAll("Alchy-TestRealm")
+    eq("count = 2", count, 2)
+    eq("total = 450000", total, 450000)
+
+    local store = GCL:GetRealmStore()
+    eq("Alchy owed cleared", store.balances["Alchy-TestRealm"].owed, 0)
+    eq("Alchy paid = 450000", store.balances["Alchy-TestRealm"].paid, 450000)
+    eq("Other still unpaid", store.balances["Other-TestRealm"].owed, 225000)
+end
+
+suite("BankCredit: SettleAll on unknown provider returns 0")
+do
+    local count, total = GCL.BankCredit:SettleAll("Nobody-TestRealm")
+    eq("count = 0", count, 0)
+    eq("total = 0", total, 0)
+end
+
+suite("ReportExporter: BuildCSV header + rows")
+do
+    resetStore()
+    recordTwoUnpaid()
+    local csv, n = GCL.ReportExporter:BuildCSV()
+    eq("csv entry count", n, 2)
+    ok("CSV has header row",
+        csv:sub(1, #"date,provider,category,recipe,cost_copper,cost_readable,status")
+        == "date,provider,category,recipe,cost_copper,cost_readable,status")
+    ok("CSV contains provider", csv:find("Alchy%-TestRealm", 1) ~= nil)
+    ok("CSV contains cost", csv:find("225000", 1) ~= nil)
+end
+
+suite("ReportExporter: BuildCSV escapes embedded commas and quotes")
+do
+    resetStore()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA",
+        providerName = 'Bob "the Brewer", Esq.',
+        category = "feast",
+        spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost,
+        pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+    local csv = GCL.ReportExporter:BuildCSV({ provider = 'Bob "the Brewer", Esq.' })
+    ok("contains quoted/escaped field",
+        csv:find('"Bob ""the Brewer"", Esq."', 1, true) ~= nil)
+end
+
+suite("ReportExporter: filter by status")
+do
+    resetStore()
+    recordTwoUnpaid()
+    local store = GCL:GetRealmStore()
+    GCL.LedgerStore:MarkPaid(store.entries[1].id, "credited", store.entries[1].matsCost)
+    local csv, n = GCL.ReportExporter:BuildCSV({ status = "unpaid" })
+    eq("only unpaid included", n, 1)
+    local _, paidN = GCL.ReportExporter:BuildCSV({ status = "credited" })
+    eq("only credited included", paidN, 1)
+end
+
+suite("ReportExporter: BuildText aggregates by provider")
+do
+    resetStore()
+    recordTwoUnpaid()
+    local txt, n = GCL.ReportExporter:BuildText()
+    eq("entry count", n, 2)
+    ok("contains header line", txt:find("Guild Consumable Ledger Report", 1, true) ~= nil)
+    ok("contains provider summary",
+        txt:find("Alchy%-TestRealm", 1) ~= nil)
+    ok("aggregates total of two entries to 45g",
+        txt:find("total 45g 0s 0c", 1) ~= nil)
+end
+
+suite("Comms: Serialize / Deserialize roundtrip")
+do
+    local payload = GCL.Comms:Serialize("CAST_SEEN",
+        { "Player-1-AAA", "Vethric-Stormrage", 457285, 1700000000, "abc-123" })
+    local mt, fields = GCL.Comms:Deserialize(payload)
+    eq("messageType", mt, "CAST_SEEN")
+    eq("field count", #fields, 5)
+    eq("guid", fields[1], "Player-1-AAA")
+    eq("name", fields[2], "Vethric-Stormrage")
+    eq("spellID-as-string", fields[3], "457285")
+end
+
+suite("Comms: payload with delimiter and special chars survives")
+do
+    local payload = GCL.Comms:Serialize("MAPPING_LEARNED",
+        { "457285", 'Hearty | Feast "v2"', "newline\nhere" })
+    local _, fields = GCL.Comms:Deserialize(payload)
+    eq("name with pipe and quote", fields[2], 'Hearty | Feast "v2"')
+    eq("name with newline", fields[3], "newline\nhere")
+end
+
+suite("Comms: Deserialize on empty/garbage")
+do
+    local mt = GCL.Comms:Deserialize("")
+    ok("empty payload yields nil", mt == nil)
+    local mt2 = GCL.Comms:Deserialize(nil)
+    ok("nil payload yields nil", mt2 == nil)
+end
+
+suite("Comms: ShouldRecordCast witness dedup")
+do
+    GCL.Comms:ResetWitnessTable()
+    local W = GCL.Comms.WITNESS_DEDUP_SECONDS
+    -- Anchor on a bucket boundary so we control which calls share a bucket.
+    local t = math.floor(1700000000 / W) * W
+    ok("first witness records", GCL.Comms:ShouldRecordCast("guid-1", 12345, t) == true)
+    ok("second witness same bucket suppressed",
+        GCL.Comms:ShouldRecordCast("guid-1", 12345, t + 2) == false)
+    ok("third witness same bucket still suppressed",
+        GCL.Comms:ShouldRecordCast("guid-1", 12345, t + W - 1) == false)
+    ok("next bucket records again",
+        GCL.Comms:ShouldRecordCast("guid-1", 12345, t + W) == true)
+    ok("different source same bucket records",
+        GCL.Comms:ShouldRecordCast("guid-2", 12345, t + 1) == true)
+end
+
+suite("HandoutTracker: BuildTrackedItemSet sources from RecipeMap")
+do
+    local set = GCL.HandoutTracker:BuildTrackedItemSet()
+    ok("Hearty Feast in tracked set",
+        set[222733] and set[222733].recipe == "Hearty Feast")
+    ok("Feast in tracked set",
+        set[222732] and set[222732].category == "feast")
+    ok("Cauldron in tracked set",
+        set[222740] and set[222740].category == "cauldron")
+    ok("Flask in tracked set",
+        set[222750] and set[222750].category == "flask")
+end
+
+suite("HandoutTracker: ResolveItemLink matches by itemID")
+do
+    local set = GCL.HandoutTracker:BuildTrackedItemSet()
+    local hit = GCL.HandoutTracker:ResolveItemLink(
+        "|cffa335ee|Hitem:222733::::::::82:::::|h[Hearty Feast]|h|r", set)
+    ok("matched Hearty Feast link",
+        hit and hit.recipe == "Hearty Feast" and hit.category == "feast")
+    local miss = GCL.HandoutTracker:ResolveItemLink(
+        "|cffffffff|Hitem:99999::|h[Random]|h|r", set)
+    ok("untracked link returns nil", miss == nil)
+    local invalid = GCL.HandoutTracker:ResolveItemLink("not a link", set)
+    ok("garbage returns nil", invalid == nil)
+end
+
+suite("HandoutTracker: CollectTrackedFromList filters mixed list")
+do
+    local set = GCL.HandoutTracker:BuildTrackedItemSet()
+    local links = {
+        "|cff|Hitem:222733::|h[Hearty]|h|r",         -- tracked
+        "|cff|Hitem:99999::|h[Random]|h|r",           -- untracked
+        "|cff|Hitem:222740::|h[Cauldron]|h|r",        -- tracked
+        "garbage",                                    -- invalid
+    }
+    local matches = GCL.HandoutTracker:CollectTrackedFromList(links, set)
+    eq("two matches", #matches, 2)
+end
+
+suite("MemberPanel: Aggregate filters by player")
+do
+    resetStore()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Vethric-Stormrage",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Vethric-Stormrage",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-2-BBB", providerName = "Other-Stormrage",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+
+    local agg = GCL.MemberPanel:Aggregate("Vethric-Stormrage")
+    eq("count", agg.count, 2)
+    eq("total", agg.total, 450000)
+    eq("unpaid", agg.unpaid, 450000)
+    eq("paid", agg.paid, 0)
+    -- Match by short name should also work
+    local agg2 = GCL.MemberPanel:Aggregate("Vethric")
+    eq("short-name match count", agg2.count, 2)
+    -- Empty / nil player returns zero
+    local empty = GCL.MemberPanel:Aggregate(nil)
+    eq("nil player count", empty.count, 0)
+end
+
+suite("SettingsPanel: category toggles persist on profile")
+do
+    GCL.SettingsPanel:SetCategoryEnabled("flask", true)
+    ok("flask enabled", GCL.SettingsPanel:IsCategoryEnabled("flask"))
+    GCL.SettingsPanel:SetCategoryEnabled("flask", false)
+    ok("flask disabled", not GCL.SettingsPanel:IsCategoryEnabled("flask"))
+end
+
+suite("SettingsPanel: SetMultiplier rejects invalid values")
+do
+    local profile = GCL:GetProfile()
+    profile.multiplier = 1.0
+    ok("accepts 1.5", GCL.SettingsPanel:SetMultiplier(1.5))
+    eq("multiplier set", profile.multiplier, 1.5)
+    ok("rejects 0", GCL.SettingsPanel:SetMultiplier(0) == false)
+    ok("rejects negative", GCL.SettingsPanel:SetMultiplier(-1) == false)
+    ok("rejects non-numeric", GCL.SettingsPanel:SetMultiplier("abc") == false)
+    ok("rejects above MULTIPLIER_MAX",
+        GCL.SettingsPanel:SetMultiplier(GCL.SettingsPanel.MULTIPLIER_MAX + 1) == false)
+    ok("rejects below MULTIPLIER_MIN",
+        GCL.SettingsPanel:SetMultiplier(GCL.SettingsPanel.MULTIPLIER_MIN / 2) == false)
+    eq("multiplier preserved after rejected sets", profile.multiplier, 1.5)
+    profile.multiplier = 1.0
+end
+
+suite("LedgerStore: IncrementCharges")
+do
+    resetStore()
+    recordTwoUnpaid()
+    local store = GCL:GetRealmStore()
+    local id = store.entries[1].id
+    ok("first increment", GCL.LedgerStore:IncrementCharges(id) == true)
+    ok("second increment", GCL.LedgerStore:IncrementCharges(id) == true)
+    eq("consumedCharges accumulated", store.entries[1].consumedCharges, 2)
+    ok("unknown id returns false",
+        GCL.LedgerStore:IncrementCharges("does-not-exist") == false)
+end
+
+suite("SettingsPanel: SetPricingStrategy validates")
+do
+    ok("auctionator accepted",
+        GCL.SettingsPanel:SetPricingStrategy("auctionator") == true)
+    ok("manual accepted",
+        GCL.SettingsPanel:SetPricingStrategy("manual") == true)
+    ok("garbage rejected",
+        GCL.SettingsPanel:SetPricingStrategy("magic") == false)
+end
+
+suite("SettingsPanel: MissingPriceItemIDs lists items without prices")
+do
+    stubs.setMockPrices({})  -- nothing
+    local list = GCL.SettingsPanel:MissingPriceItemIDs()
+    ok("non-empty when nothing priced", #list > 0)
+    -- All known reagents missing → all should be in the list. The Hearty
+    -- Feast composite has no own reagents, so its mats live under its
+    -- sub-recipe — but the composite's itemID is not iterated here.
+    stubs.setMockPrices({
+        [222731] = 50000, [222730] = 25000, [222729] = 10000,
+        [222741] = 80000, [222742] = 200000, [222743] = 1000000,
+        [222750] = 1, [222751] = 1, [222760] = 1, [222761] = 1,
+    })
+    local listAll = GCL.SettingsPanel:MissingPriceItemIDs()
+    eq("nothing missing once all priced", #listAll, 0)
+    stubs.clearMockPrices()
+end
+
+suite("LearnDialog: LookupRecipeName resolves case-insensitively")
+do
+    eq("exact match",
+        GCL.LearnDialog:LookupRecipeName("Hearty Feast"), "Hearty Feast")
+    eq("case-insensitive match",
+        GCL.LearnDialog:LookupRecipeName("hearty feast"), "Hearty Feast")
+    ok("unknown returns nil",
+        GCL.LearnDialog:LookupRecipeName("Fake Recipe") == nil)
+    ok("nil returns nil",
+        GCL.LearnDialog:LookupRecipeName(nil) == nil)
+end
+
+suite("LearnDialog: Save persists mapping via SpellMap")
+do
+    -- Use a fresh spellID
+    local sid = 999991
+    ok("not yet known", GCL.SpellMap:Get(sid) == nil)
+    local ok_, resolved = GCL.LearnDialog:Save(sid, "hearty feast")
+    ok("save returns true", ok_ == true)
+    eq("save returns canonical name", resolved, "Hearty Feast")
+    local mapping = GCL.SpellMap:Get(sid)
+    ok("SpellMap learned mapping", mapping and mapping.recipe == "Hearty Feast")
+    -- Unknown recipe rejected
+    local ok2, err = GCL.LearnDialog:Save(999992, "Fake Recipe")
+    ok("unknown recipe rejected", ok2 == false)
+    ok("error string returned", err == "unknown recipe")
+end
+
+suite("LearnDialog: IsActive honours expiry")
+do
+    GCL.LearnDialog:Deactivate()
+    ok("inactive by default", not GCL.LearnDialog:IsActive())
+    GCL.LearnDialog:Activate()
+    ok("active after Activate", GCL.LearnDialog:IsActive())
+    -- Simulate a future time past the window
+    ok("expires after window",
+        not GCL.LearnDialog:IsActive(GCL.LearnDialog.expiresAt + 1))
+    ok("auto-deactivates after expiry check",
+        GCL.LearnDialog.active == false)
 end
 
 -- ----------------------------------------------------------------------------

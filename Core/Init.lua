@@ -68,6 +68,10 @@ local DEFAULT_PROFILE = {
         rune = false,
         phial = false,
     },
+    handoutTrackingEnabled = false,
+    attributeCauldronCharges = false,
+    commsEnabled = true,
+    officerRankThreshold = 3,
 }
 
 local function deepMerge(target, defaults)
@@ -136,6 +140,44 @@ local function handleSlash(msg)
         end
         return
     end
+    if msg == "settings" or msg == "config" then
+        if GCL.SettingsPanel and GCL.SettingsPanel.Toggle then
+            GCL.SettingsPanel:Toggle()
+        end
+        return
+    end
+    if msg == "mine" or msg == "me" then
+        if GCL.MemberPanel and GCL.MemberPanel.Toggle then
+            GCL.MemberPanel:Toggle()
+        end
+        return
+    end
+    if msg == "learn" then
+        if GCL.LearnDialog and GCL.LearnDialog.Activate then
+            GCL.LearnDialog:Activate()
+        end
+        return
+    end
+    local creditAll = msg:match("^settle%s+(.+)$")
+    if creditAll then
+        creditAll = creditAll:gsub("^%s+", ""):gsub("%s+$", "")
+        if creditAll == "" then
+            GCL:Print(GCL.L.SLASH_SETTLE or "  settle <name>  - bulk-credit unpaid entries for <name>")
+            return
+        end
+        if GCL.BankCredit and GCL.BankCredit.SettleAll then
+            local count, total = GCL.BankCredit:SettleAll(creditAll)
+            local cps = GCL.LedgerStore and GCL.LedgerStore.CopperToString or tostring
+            if count == 0 then
+                GCL:Print(GCL.L.LOG_CREDITED_NONE
+                    or "No unpaid entries found for '%s'.", creditAll)
+            else
+                GCL:Print((GCL.L.LOG_CREDITED_BULK or "Credited %d entries totaling %s."),
+                    count, cps(total))
+            end
+        end
+        return
+    end
     if msg == "reset confirm" then
         if not resetPending then
             GCL:Print(L.LOG_RESET_PENDING)
@@ -157,6 +199,10 @@ local function handleSlash(msg)
     GCL:Print(L.SLASH_PRINT)
     GCL:Print(L.SLASH_RESET)
     GCL:Print(L.SLASH_VERSION)
+    GCL:Print(L.SLASH_SETTINGS or "  settings       - open settings panel")
+    GCL:Print(L.SLASH_MINE or "  mine           - show my own contributions")
+    GCL:Print(L.SLASH_LEARN or "  learn          - learn an unknown spellID for the next 5 minutes")
+    GCL:Print(L.SLASH_SETTLE or "  settle <name>  - bulk-credit unpaid entries for <name>")
     GCL:Print("  test <name>    - test harness (try /gcl test list)")
 end
 

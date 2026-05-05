@@ -31,7 +31,9 @@ function M.install()
             },
         },
     }
-    _G.AUCTIONATOR_PRICE_DATABASE = {}
+    -- Seed a fresh scan timestamp so AuctionatorAdapter:IsStale() returns false
+    -- by default. Tests that need stale data can override AUCTIONATOR_PRICE_DATABASE.
+    _G.AUCTIONATOR_PRICE_DATABASE = { TestRealm = { __lastUpdate = os.time() } }
 
     -- Slash commands tables (Core/Init.lua assigns into these — harmless here).
     _G.SLASH_GCL1 = nil

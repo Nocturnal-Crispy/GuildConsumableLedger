@@ -17,6 +17,14 @@ SpellMap.spells = {
     -- Cauldrons
     [457290] = { recipe = "Cauldron of the Pool",            placeholder = true },
     [457291] = { recipe = "Cauldron of the Tempest",         placeholder = true },
+
+    -- Personal flask creation (Alchemy crafting cast). Verify per-patch.
+    [457300] = { recipe = "Flask of Alchemical Chaos",       placeholder = true },
+    [457301] = { recipe = "Flask of Tempered Aggression",    placeholder = true },
+
+    -- Personal food creation (Cooking crafting cast). Verify per-patch.
+    [457310] = { recipe = "Sizzling Salmon Stew",            placeholder = true },
+    [457311] = { recipe = "Roast Duck Delight",              placeholder = true },
 }
 
 function SpellMap:Get(spellID)

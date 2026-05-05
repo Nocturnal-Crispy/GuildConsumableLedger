@@ -45,6 +45,38 @@ RecipeMap.recipes = {
             { itemID = 222743, qty = 1 },
         },
     },
+    ["Flask of Alchemical Chaos"] = {
+        category = "flask",
+        itemID = 222750,
+        reagents = {
+            { itemID = 222731, qty = 5 },
+            { itemID = 222730, qty = 2 },
+        },
+    },
+    ["Flask of Tempered Aggression"] = {
+        category = "flask",
+        itemID = 222751,
+        reagents = {
+            { itemID = 222731, qty = 5 },
+            { itemID = 222729, qty = 4 },
+        },
+    },
+    ["Sizzling Salmon Stew"] = {
+        category = "food",
+        itemID = 222760,
+        reagents = {
+            { itemID = 222730, qty = 4 },
+            { itemID = 222729, qty = 2 },
+        },
+    },
+    ["Roast Duck Delight"] = {
+        category = "food",
+        itemID = 222761,
+        reagents = {
+            { itemID = 222731, qty = 2 },
+            { itemID = 222729, qty = 4 },
+        },
+    },
 }
 
 function RecipeMap:Get(name)

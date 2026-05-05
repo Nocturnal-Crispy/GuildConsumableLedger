@@ -2,17 +2,17 @@ local _, GCL = ...
 
 local MainFrame = GCL:NewModule("MainFrame")
 
-local FRAME_W, FRAME_H = 760, 460
+local FRAME_W, FRAME_H = 860, 460
 local ROW_H = 22
 local VISIBLE_ROWS = 14
 
 local COLS = {
-    { key = "date",     label_key = "UI_COL_DATE",     width = 120, align = "LEFT"  },
+    { key = "date",     label_key = "UI_COL_DATE",     width = 130, align = "LEFT"  },
     { key = "provider", label_key = "UI_COL_PROVIDER", width = 140, align = "LEFT"  },
-    { key = "recipe",   label_key = "UI_COL_RECIPE",   width = 180, align = "LEFT"  },
+    { key = "recipe",   label_key = "UI_COL_RECIPE",   width = 220, align = "LEFT"  },
     { key = "cost",     label_key = "UI_COL_COST",     width = 110, align = "RIGHT" },
-    { key = "status",   label_key = "UI_COL_STATUS",   width = 90,  align = "LEFT"  },
-    { key = "action",   label_key = "UI_COL_ACTION",   width = 90,  align = "CENTER"},
+    { key = "status",   label_key = "UI_COL_STATUS",   width = 80,  align = "LEFT"  },
+    { key = "action",   label_key = "UI_COL_ACTION",   width = 120, align = "CENTER"},
 }
 
 local frame
@@ -103,16 +103,31 @@ local function acquireRow(parent, index)
     row.cells = {}
     for _, col in ipairs(COLS) do
         if col.key == "action" then
-            local btn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-            btn:SetSize(col.width - 8, ROW_H - 2)
-            btn:SetPoint("LEFT", x + 4, 0)
-            btn:SetText(GCL.L.UI_BTN_MARK_PAID)
-            row.actionBtn = btn
-            row.cells[col.key] = btn
+            local container = CreateFrame("Frame", nil, row)
+            container:SetSize(col.width - 4, ROW_H)
+            container:SetPoint("LEFT", x + 2, 0)
+
+            -- Two action buttons split the column. The Status column already
+            -- shows "Credited" / "Mailed" so paid rows simply hide both.
+            local btnW = math.floor((col.width - 12) / 2)
+            local mailBtn = CreateFrame("Button", nil, container, "UIPanelButtonTemplate")
+            mailBtn:SetSize(btnW, ROW_H - 4)
+            mailBtn:SetPoint("LEFT", 2, 0)
+            mailBtn:SetText(GCL.L.UI_BTN_MAIL or "Mail")
+            row.mailBtn = mailBtn
+
+            local creditBtn = CreateFrame("Button", nil, container, "UIPanelButtonTemplate")
+            creditBtn:SetSize(btnW, ROW_H - 4)
+            creditBtn:SetPoint("LEFT", mailBtn, "RIGHT", 4, 0)
+            creditBtn:SetText(GCL.L.UI_BTN_CREDIT or "Credit")
+            row.creditBtn = creditBtn
+
+            row.cells[col.key] = container
         else
             local fs = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             fs:SetSize(col.width - 8, ROW_H)
             fs:SetJustifyH(col.align)
+            fs:SetWordWrap(false)
             fs:SetPoint("LEFT", x + 4, 0)
             row.cells[col.key] = fs
         end
@@ -155,6 +170,17 @@ function MainFrame:Build()
     refresh:SetPoint("BOTTOMRIGHT", -16, 12)
     refresh:SetText(GCL.L.UI_BTN_REFRESH)
     refresh:SetScript("OnClick", function() MainFrame:Refresh() end)
+
+    -- Export button (opens ReportExporter dialog)
+    local exportBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+    exportBtn:SetSize(80, 22)
+    exportBtn:SetPoint("RIGHT", refresh, "LEFT", -6, 0)
+    exportBtn:SetText(GCL.L.UI_BTN_EXPORT or "Export")
+    exportBtn:SetScript("OnClick", function()
+        if GCL.ReportExporter and GCL.ReportExporter.Show then
+            GCL.ReportExporter:Show(nil, "text")
+        end
+    end)
 
     -- Status footer
     frame.footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
@@ -246,15 +272,23 @@ function MainFrame:Refresh()
 
         local entryID = e.id
         if e.paymentStatus == "unpaid" then
-            row.actionBtn:SetText(GCL.L.UI_BTN_MARK_PAID)
-            row.actionBtn:Enable()
-            row.actionBtn:SetScript("OnClick", function()
-                GCL.LedgerStore:MarkPaid(entryID, "credited", e.matsCost)
+            row.mailBtn:Show()
+            row.mailBtn:Enable()
+            row.mailBtn:SetScript("OnClick", function()
+                if GCL.MailPayer and GCL.MailPayer.Pay then
+                    GCL.MailPayer:Pay(entryID)
+                end
+            end)
+            row.creditBtn:Show()
+            row.creditBtn:Enable()
+            row.creditBtn:SetScript("OnClick", function()
+                if GCL.BankCredit and GCL.BankCredit.Credit then
+                    GCL.BankCredit:Credit(entryID)
+                end
             end)
         else
-            row.actionBtn:SetText("--")
-            row.actionBtn:Disable()
-            row.actionBtn:SetScript("OnClick", nil)
+            row.mailBtn:Hide()
+            row.creditBtn:Hide()
         end
 
         row:Show()
