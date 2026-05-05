@@ -2,7 +2,7 @@
 ## Title: Guild Consumable Ledger
 ## Notes: Logs who provides raid consumables (cauldrons, feasts) and prices them via Auctionator.
 ## Author: Crispy
-## Version: 0.1.0-phase1
+## Version: 0.0.3
 ## SavedVariables: GuildConsumableLedgerDB
 ## OptionalDeps: Auctionator
 ## IconTexture: Interface\Icons\inv_misc_food_legion_feastofthefishes_table
