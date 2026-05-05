@@ -11,6 +11,7 @@ Locale\enUS.lua
 
 Core\Init.lua
 Core\EventBus.lua
+Core\Comms.lua
 
 Data\SpellMap.lua
 Data\RecipeMap.lua
@@ -23,7 +24,16 @@ Ledger\LedgerStore.lua
 Ledger\BalanceCalculator.lua
 
 Tracking\CastTracker.lua
+Tracking\HandoutTracker.lua
+Tracking\CauldronClickTracker.lua
+
+Reimbursement\BankCredit.lua
+Reimbursement\MailPayer.lua
+Reimbursement\ReportExporter.lua
 
 Testing\SimHarness.lua
 
 UI\MainFrame.lua
+UI\MemberPanel.lua
+UI\SettingsPanel.lua
+UI\LearnDialog.lua

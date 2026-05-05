@@ -114,6 +114,16 @@ function LedgerStore:MarkPaid(id, mode, amount)
     return true
 end
 
+function LedgerStore:IncrementCharges(id)
+    local entry = self:GetByID(id)
+    if not entry then return false end
+    entry.consumedCharges = (entry.consumedCharges or 0) + 1
+    if GCL.MainFrame and GCL.MainFrame.Refresh then
+        GCL.MainFrame:Refresh()
+    end
+    return true
+end
+
 function LedgerStore:PrintRecent(n)
     local entries = self:All()
     local count = #entries

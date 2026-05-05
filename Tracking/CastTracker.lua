@@ -51,14 +51,25 @@ function CastTracker:OnCombatLog()
     if not isInsideRaidInstance() then return end
 
     local mapping = GCL.SpellMap:Get(spellID)
-    if not mapping then return end
+    if not mapping then
+        -- Unknown spell. If learn mode is active and the cast came from the
+        -- player themselves, prompt the officer to map it. Other players'
+        -- unknown casts are ignored to avoid prompt spam.
+        if GCL.LearnDialog and GCL.LearnDialog.IsActive
+            and GCL.LearnDialog:IsActive()
+            and sourceGUID and _G.UnitGUID and sourceGUID == _G.UnitGUID("player") then
+            local spellName = (_G.GetSpellInfo and _G.GetSpellInfo(spellID)) or "?"
+            GCL.LearnDialog:Prompt(spellID, spellName)
+        end
+        return
+    end
 
     if not isInGroupOrRaid(sourceName) then return end
 
-    local profile = GCL:GetProfile()
     local recipe = GCL.RecipeMap:Get(mapping.recipe)
     if not recipe then return end
 
+    local profile = GCL:GetProfile()
     if profile and profile.enabledCategories
         and profile.enabledCategories[recipe.category] == false then
         return
@@ -66,6 +77,16 @@ function CastTracker:OnCombatLog()
 
     local now = time()
     if isDuplicate(sourceGUID, spellID, now) then return end
+
+    -- Local witness dedup also passes through Comms.ShouldRecordCast so the
+    -- bucket-time-keyed table acts as a stricter second pass within the same
+    -- session. Cross-officer dedup over the addon channel is intentionally
+    -- NOT enabled until peer messages can be authenticated; until then each
+    -- officer writes their own entry and a manual reconciliation step (or a
+    -- future signed-payload protocol) deduplicates after the fact.
+    if GCL.Comms and not GCL.Comms:ShouldRecordCast(sourceGUID, spellID, now) then
+        return
+    end
 
     local cost, snapshot = GCL.CostCalculator:Resolve(mapping.recipe)
 
