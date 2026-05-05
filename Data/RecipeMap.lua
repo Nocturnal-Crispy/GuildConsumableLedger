@@ -2,7 +2,7 @@ local _, GCL = ...
 
 local RecipeMap = GCL:NewModule("RecipeMap")
 
--- Reagent item IDs are seeded for The War Within / Midnight era and may need
+-- Reagent item IDs are seeded for the Midnight (12.0) era and may need
 -- updating per patch. The first patch of an expansion always shifts these.
 -- The /gcl learn flow (Phase 4) lets officers update entries without code edits.
 
@@ -11,72 +11,50 @@ local RecipeMap = GCL:NewModule("RecipeMap")
 --   composedOf = { { recipe = "Other Recipe Name", qty = N } }    -- composite
 
 RecipeMap.recipes = {
-    ["Feast of the Midnight Masquerade"] = {
+    ["Harandar Celebration"] = {
         category = "feast",
-        itemID = 222732,                       -- finished item; AH price for min-vs-craft check
+        itemID = 255846,                       -- finished item; AH price for min-vs-craft check
+        spellID = 1226175,
         reagents = {
-            { itemID = 222731, qty = 1 },      -- placeholder Algari herb
-            { itemID = 222730, qty = 5 },      -- placeholder ingredient A
-            { itemID = 222729, qty = 5 },      -- placeholder ingredient B
+            { itemID = 242640, qty = 10 },     -- Plant Protein
+            { itemID = 242647, qty = 4 },      -- Tavern Fixings
+            { itemID = 242641, qty = 3 },      -- Cooking Spirits
+            { itemID = 236951, qty = 3 },      -- Mote of Wild Magic
+            { itemID = 236774, qty = 3 },      -- Azeroot
+            { itemID = 251285, qty = 1 },      -- Petrified Root
         },
     },
-    ["Hearty Feast"] = {
+    ["Hearty Harandar Celebration"] = {
         category = "feast",
-        itemID = 222733,
+        itemID = 266996,
         composedOf = {
-            { recipe = "Feast of the Midnight Masquerade", qty = 10 },
+            { recipe = "Harandar Celebration", qty = 10 },
         },
     },
-    ["Cauldron of the Pool"] = {
+    ["Voidlight Potion Cauldron"] = {
         category = "cauldron",
-        itemID = 222740,
+        itemID = 241284,
+        spellID = 1230857,
         reagents = {
-            { itemID = 222741, qty = 12 },     -- placeholder herbs
-            { itemID = 222742, qty = 4 },      -- placeholder essence
-            { itemID = 222743, qty = 1 },      -- placeholder vial
+            { itemID = 236780, qty = 1 },      -- Nocturnal Lotus
+            { itemID = 242651, qty = 5 },      -- Stabilized Derivate
+            { itemID = 251285, qty = 4 },      -- Petrified Root
+            { itemID = 240991, qty = 20 },     -- Sunglass Vial
+            { itemID = 241283, qty = 4 },      -- Wondrous Synergist
         },
     },
-    ["Cauldron of the Tempest"] = {
+    ["Cauldron of Sin'dorei Flasks"] = {
         category = "cauldron",
-        itemID = 222744,
+        itemID = 241318,
+        spellID = 1230874,
         reagents = {
-            { itemID = 222741, qty = 18 },
-            { itemID = 222742, qty = 6 },
-            { itemID = 222743, qty = 1 },
+            { itemID = 236780, qty = 1 },      -- Nocturnal Lotus
+            { itemID = 242651, qty = 5 },      -- Stabilized Derivate
+            { itemID = 251285, qty = 4 },      -- Petrified Root
+            { itemID = 240991, qty = 20 },     -- Sunglass Vial
+            { itemID = 241283, qty = 4 },      -- Wondrous Synergist
         },
-    },
-    ["Flask of Alchemical Chaos"] = {
-        category = "flask",
-        itemID = 222750,
-        reagents = {
-            { itemID = 222731, qty = 5 },
-            { itemID = 222730, qty = 2 },
-        },
-    },
-    ["Flask of Tempered Aggression"] = {
-        category = "flask",
-        itemID = 222751,
-        reagents = {
-            { itemID = 222731, qty = 5 },
-            { itemID = 222729, qty = 4 },
-        },
-    },
-    ["Sizzling Salmon Stew"] = {
-        category = "food",
-        itemID = 222760,
-        reagents = {
-            { itemID = 222730, qty = 4 },
-            { itemID = 222729, qty = 2 },
-        },
-    },
-    ["Roast Duck Delight"] = {
-        category = "food",
-        itemID = 222761,
-        reagents = {
-            { itemID = 222731, qty = 2 },
-            { itemID = 222729, qty = 4 },
-        },
-    },
+    }
 }
 
 function RecipeMap:Get(name)
