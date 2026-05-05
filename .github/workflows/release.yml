@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          RAW="${GITHUB_REF_NAME}"
+          echo "VERSION=${RAW#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build WowUp-compatible ZIP
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          ADDON=GuildConsumableLedger
+          mkdir -p "staging/${ADDON}"
+          cp "${ADDON}.toc" "staging/${ADDON}/"
+          for dir in Core Data Locale Pricing Ledger Tracking UI Testing; do
+            if [ -d "${dir}" ]; then
+              cp -r "${dir}" "staging/${ADDON}/"
+            fi
+          done
+          cd staging
+          zip -r "../${ADDON}-${VERSION}.zip" "${ADDON}/"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "GuildConsumableLedger v${{ steps.version.outputs.VERSION }}"
+          body: |
+            ## Install via WowUp
+            1. Open WowUp → **Install** tab → **Install from ZIP**
+            2. Drop the `.zip` file onto the WowUp window.
+
+            ## Manual Install
+            Extract the ZIP so `GuildConsumableLedger/` sits directly inside `Interface/AddOns/`.
+
+            ## Changelog
+            See commit history for changes in this release.
+          files: "GuildConsumableLedger-${{ steps.version.outputs.VERSION }}.zip"
+          fail_on_unmatched_files: true
