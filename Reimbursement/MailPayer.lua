@@ -309,12 +309,7 @@ local function onMailSendSuccess()
     end
 end
 
-function MailPayer:Init()
-    if not GCL.EventBus then return end
+if GCL.EventBus then
     GCL.EventBus:On("MAIL_SHOW", onMailShow)
     GCL.EventBus:On("MAIL_SEND_SUCCESS", onMailSendSuccess)
-end
-
-if GCL.EventBus then
-    GCL.EventBus:On("PLAYER_LOGIN", function() MailPayer:Init() end)
 end

@@ -151,25 +151,24 @@ function HandoutTracker:OnTradeClosed()
     end
 end
 
-function HandoutTracker:Init()
-    if _G.hooksecurefunc then
-        _G.hooksecurefunc("SendMail", function(recipient)
-            HandoutTracker:OnSendMail(recipient)
-        end)
-    end
-    if GCL.EventBus then
-        GCL.EventBus:On("TRADE_ACCEPT_UPDATE", function(_, p, t)
-            HandoutTracker:OnTradeAcceptUpdate(p, t)
-        end)
-        GCL.EventBus:On("TRADE_REQUEST_CANCEL", function()
-            HandoutTracker:OnTradeRequestCancel()
-        end)
-        GCL.EventBus:On("TRADE_CLOSED", function()
-            HandoutTracker:OnTradeClosed()
-        end)
-    end
+-- hooksecurefunc on a Blizzard global must wait until that global exists.
+-- SendMail is defined by FrameXML, available before PLAYER_LOGIN, but hooking
+-- inside an event handler triggers no taint here because the hook is a
+-- read-only callback. We still gate on the API being present.
+if _G.hooksecurefunc and _G.SendMail then
+    _G.hooksecurefunc("SendMail", function(recipient)
+        HandoutTracker:OnSendMail(recipient)
+    end)
 end
 
 if GCL.EventBus then
-    GCL.EventBus:On("PLAYER_LOGIN", function() HandoutTracker:Init() end)
+    GCL.EventBus:On("TRADE_ACCEPT_UPDATE", function(_, p, t)
+        HandoutTracker:OnTradeAcceptUpdate(p, t)
+    end)
+    GCL.EventBus:On("TRADE_REQUEST_CANCEL", function()
+        HandoutTracker:OnTradeRequestCancel()
+    end)
+    GCL.EventBus:On("TRADE_CLOSED", function()
+        HandoutTracker:OnTradeClosed()
+    end)
 end

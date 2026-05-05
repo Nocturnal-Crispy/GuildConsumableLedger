@@ -9,7 +9,7 @@ GCL.L = {
     SLASH_HIDE = "  hide           - close the ledger window",
     SLASH_TOGGLE = "  toggle         - toggle the ledger window",
     SLASH_PRINT = "  print          - dump recent entries to chat",
-    SLASH_RESET = "  reset          - wipe this realm's ledger (confirm required)",
+    SLASH_RESET = "  reset          - wipe this realm's ledger (opens confirmation dialog)",
     SLASH_VERSION = "  version        - print addon version",
 
     LOG_LOADED = "loaded. Type /gcl for help.",
@@ -19,7 +19,6 @@ GCL.L = {
     LOG_PRICE_STALE = "Auctionator data older than 24h — entry flagged stale.",
     LOG_PRICE_MISSING = "No price for itemID %d — set a manual price via /gcl.",
     LOG_PAID = "Marked entry %s as paid.",
-    LOG_RESET_PENDING = "Type /gcl reset confirm to wipe this realm's ledger.",
     LOG_RESET_DONE = "Ledger wiped for this realm.",
 
     UI_TITLE = "Guild Consumable Ledger",
@@ -59,7 +58,6 @@ GCL.L = {
     UI_EXPORT_HINT = "Click in the box, Ctrl+A to select all, Ctrl+C to copy.",
     UI_EXPORT_FORMAT_TEXT = "Text",
 
-    UI_MEMBER_TITLE = "My Contributions",
     UI_SETTINGS_TITLE = "Guild Consumable Ledger — Settings",
     UI_SETTINGS_CATEGORIES = "Tracked categories",
     UI_SETTINGS_OTHER = "Other",
@@ -67,18 +65,10 @@ GCL.L = {
     UI_SETTINGS_COMMS = "Sync via guild addon channel",
     UI_SETTINGS_MULTIPLIER = "Cost multiplier",
 
-    UI_LEARN_TITLE = "Learn a new consumable spell",
-    UI_LEARN_HINT = "Type the recipe name from RecipeMap, then click Save.",
     UI_BTN_SAVE = "Save",
     UI_BTN_CANCEL = "Cancel",
 
-    LEARN_ACTIVE = "Learn mode active for 5 minutes — cast an unknown consumable spell.",
-    LEARN_SAVED = "Mapped spell %d -> %s.",
-    LEARN_UNKNOWN = "Recipe '%s' not in RecipeMap.",
-
     SLASH_SETTINGS = "  settings       - open settings panel",
-    SLASH_MINE = "  mine           - show my own contributions",
-    SLASH_LEARN = "  learn          - learn an unknown spellID for the next 5 minutes",
     SLASH_SETTLE = "  settle <name>  - bulk-credit unpaid entries for <name>",
 
     MAIL_SUBJECT_PREFIX = "Consumable reimbursement",

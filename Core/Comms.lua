@@ -127,11 +127,9 @@ function Comms:Init()
     if _G.C_ChatInfo and _G.C_ChatInfo.RegisterAddonMessagePrefix then
         _G.C_ChatInfo.RegisterAddonMessagePrefix(self.PREFIX)
     end
-    if GCL.EventBus then
-        GCL.EventBus:On("CHAT_MSG_ADDON", dispatch)
-    end
 end
 
 if GCL.EventBus then
+    GCL.EventBus:On("CHAT_MSG_ADDON", dispatch)
     GCL.EventBus:On("PLAYER_LOGIN", function() Comms:Init() end)
 end

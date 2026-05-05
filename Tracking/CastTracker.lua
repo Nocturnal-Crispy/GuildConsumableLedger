@@ -51,18 +51,7 @@ function CastTracker:OnCombatLog()
     if not isInsideRaidInstance() then return end
 
     local mapping = GCL.SpellMap:Get(spellID)
-    if not mapping then
-        -- Unknown spell. If learn mode is active and the cast came from the
-        -- player themselves, prompt the officer to map it. Other players'
-        -- unknown casts are ignored to avoid prompt spam.
-        if GCL.LearnDialog and GCL.LearnDialog.IsActive
-            and GCL.LearnDialog:IsActive()
-            and sourceGUID and _G.UnitGUID and sourceGUID == _G.UnitGUID("player") then
-            local spellName = (_G.GetSpellInfo and _G.GetSpellInfo(spellID)) or "?"
-            GCL.LearnDialog:Prompt(spellID, spellName)
-        end
-        return
-    end
+    if not mapping then return end
 
     if not isInGroupOrRaid(sourceName) then return end
 
@@ -102,9 +91,6 @@ function CastTracker:OnCombatLog()
     })
 end
 
-function CastTracker:Init()
-    GCL.SpellMap:LoadLearnedFromStore()
+if GCL.EventBus then
     GCL.EventBus:OnCombatLog(function() CastTracker:OnCombatLog() end)
 end
-
-GCL.EventBus:On("PLAYER_LOGIN", function() CastTracker:Init() end)

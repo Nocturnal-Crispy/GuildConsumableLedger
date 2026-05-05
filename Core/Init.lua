@@ -41,13 +41,11 @@ function GCL:GetRealmStore()
         entries = {},
         balances = {},
         manualPrices = {},
-        mappingsLearned = {},
     }
     local store = db.realms[key]
     store.entries = store.entries or {}
     store.balances = store.balances or {}
     store.manualPrices = store.manualPrices or {}
-    store.mappingsLearned = store.mappingsLearned or {}
     if not store.guildName then
         store.guildName = self:GetGuildName()
     end
@@ -100,7 +98,30 @@ function GCL:GetProfile()
     return self.db and self.db.profile
 end
 
-local resetPending = false
+local function performReset()
+    local store = GCL:GetRealmStore()
+    if not store then return end
+    store.entries = {}
+    store.balances = {}
+    GCL:Print(GCL.L.LOG_RESET_DONE)
+    if GCL.MainFrame and GCL.MainFrame.Refresh then
+        GCL.MainFrame:Refresh()
+    end
+end
+
+if _G.StaticPopupDialogs then
+    _G.StaticPopupDialogs["GCL_CONFIRM_RESET"] = {
+        text = "Wipe this realm's Guild Consumable Ledger?\nAll recorded entries and balances will be permanently deleted.",
+        button1 = _G.YES or "Yes",
+        button2 = _G.NO or "No",
+        OnAccept = performReset,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+end
+
 local function handleSlash(msg)
     msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
     local L = GCL.L
@@ -127,34 +148,16 @@ local function handleSlash(msg)
         return
     end
     if msg == "reset" then
-        resetPending = true
-        GCL:Print(L.LOG_RESET_PENDING)
-        return
-    end
-    local testArg = msg:match("^test%s*(.*)$")
-    if testArg ~= nil then
-        if GCL.SimHarness and GCL.SimHarness.Run then
-            GCL.SimHarness:Run(testArg)
+        if _G.StaticPopup_Show then
+            _G.StaticPopup_Show("GCL_CONFIRM_RESET")
         else
-            GCL:Print("test harness not loaded")
+            performReset()
         end
         return
     end
     if msg == "settings" or msg == "config" then
         if GCL.SettingsPanel and GCL.SettingsPanel.Toggle then
             GCL.SettingsPanel:Toggle()
-        end
-        return
-    end
-    if msg == "mine" or msg == "me" then
-        if GCL.MemberPanel and GCL.MemberPanel.Toggle then
-            GCL.MemberPanel:Toggle()
-        end
-        return
-    end
-    if msg == "learn" then
-        if GCL.LearnDialog and GCL.LearnDialog.Activate then
-            GCL.LearnDialog:Activate()
         end
         return
     end
@@ -178,20 +181,6 @@ local function handleSlash(msg)
         end
         return
     end
-    if msg == "reset confirm" then
-        if not resetPending then
-            GCL:Print(L.LOG_RESET_PENDING)
-            return
-        end
-        resetPending = false
-        local store = GCL:GetRealmStore()
-        if store then
-            store.entries = {}
-            store.balances = {}
-            GCL:Print(L.LOG_RESET_DONE)
-        end
-        return
-    end
     GCL:Print(L.SLASH_HELP)
     GCL:Print(L.SLASH_SHOW)
     GCL:Print(L.SLASH_HIDE)
@@ -200,10 +189,7 @@ local function handleSlash(msg)
     GCL:Print(L.SLASH_RESET)
     GCL:Print(L.SLASH_VERSION)
     GCL:Print(L.SLASH_SETTINGS or "  settings       - open settings panel")
-    GCL:Print(L.SLASH_MINE or "  mine           - show my own contributions")
-    GCL:Print(L.SLASH_LEARN or "  learn          - learn an unknown spellID for the next 5 minutes")
     GCL:Print(L.SLASH_SETTLE or "  settle <name>  - bulk-credit unpaid entries for <name>")
-    GCL:Print("  test <name>    - test harness (try /gcl test list)")
 end
 
 SLASH_GCL1 = "/gcl"

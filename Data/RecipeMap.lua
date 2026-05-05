@@ -4,7 +4,6 @@ local RecipeMap = GCL:NewModule("RecipeMap")
 
 -- Reagent item IDs are seeded for the Midnight (12.0) era and may need
 -- updating per patch. The first patch of an expansion always shifts these.
--- The /gcl learn flow (Phase 4) lets officers update entries without code edits.
 
 -- Format:
 --   reagents = { { itemID = N, qty = N }, ... }                   -- leaf recipe

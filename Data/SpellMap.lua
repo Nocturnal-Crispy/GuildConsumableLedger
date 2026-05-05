@@ -30,21 +30,3 @@ SpellMap.spells = {
 function SpellMap:Get(spellID)
     return self.spells[spellID]
 end
-
-function SpellMap:Learn(spellID, recipeName)
-    self.spells[spellID] = { recipe = recipeName, placeholder = false, learned = true }
-    local store = GCL:GetRealmStore()
-    if store then
-        store.mappingsLearned[spellID] = { recipe = recipeName, learnedAt = time() }
-    end
-end
-
-function SpellMap:LoadLearnedFromStore()
-    local store = GCL:GetRealmStore()
-    if not store or not store.mappingsLearned then return end
-    for spellID, data in pairs(store.mappingsLearned) do
-        if not self.spells[spellID] then
-            self.spells[spellID] = { recipe = data.recipe, placeholder = false, learned = true }
-        end
-    end
-end

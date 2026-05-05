@@ -6,7 +6,7 @@ local CauldronClickTracker = GCL:NewModule("CauldronClickTracker")
 -- When a guildmate gets a flask buff and the source is a guild cauldron, we
 -- attribute one charge of consumption to the most recent matching cauldron
 -- entry. Because the actual buff IDs vary per patch, this table is seeded
--- empty; officers populate it via /gcl learn (Phase 4) or by editing.
+-- empty; officers populate it by editing the table per expansion.
 CauldronClickTracker.buffMap = {
     -- [buffSpellID] = "Cauldron of the Pool",
     -- [buffSpellID] = "Cauldron of the Tempest",
@@ -57,12 +57,6 @@ function CauldronClickTracker:OnCombatLog()
     end
 end
 
-function CauldronClickTracker:Init()
-    if GCL.EventBus then
-        GCL.EventBus:OnCombatLog(function() CauldronClickTracker:OnCombatLog() end)
-    end
-end
-
 if GCL.EventBus then
-    GCL.EventBus:On("PLAYER_LOGIN", function() CauldronClickTracker:Init() end)
+    GCL.EventBus:OnCombatLog(function() CauldronClickTracker:OnCombatLog() end)
 end

@@ -31,9 +31,5 @@ Reimbursement\BankCredit.lua
 Reimbursement\MailPayer.lua
 Reimbursement\ReportExporter.lua
 
-Testing\SimHarness.lua
-
 UI\MainFrame.lua
-UI\MemberPanel.lua
 UI\SettingsPanel.lua
-UI\LearnDialog.lua

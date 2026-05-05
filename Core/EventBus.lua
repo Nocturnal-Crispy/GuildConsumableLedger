@@ -2,15 +2,23 @@ local _, GCL = ...
 
 local EventBus = GCL:NewModule("EventBus")
 
-local frame = CreateFrame("Frame", "GuildConsumableLedgerEventFrame")
+-- Anonymous frame: avoids polluting the global namespace and the taint vectors
+-- that come with a globally-named frame being looked up by Blizzard or other
+-- addons. RegisterEvent must be called at file-load time only — calling it
+-- from inside an OnEvent handler triggers ADDON_ACTION_FORBIDDEN on retail.
+local frame = CreateFrame("Frame")
 EventBus.frame = frame
 
 local listeners = {}
+local registered = {}
 
 function EventBus:On(event, fn)
     listeners[event] = listeners[event] or {}
     table.insert(listeners[event], fn)
-    frame:RegisterEvent(event)
+    if not registered[event] then
+        registered[event] = true
+        frame:RegisterEvent(event)
+    end
 end
 
 function EventBus:OnCombatLog(fn)

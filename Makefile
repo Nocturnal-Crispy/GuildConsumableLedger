@@ -1,14 +1,12 @@
 ADDON   := GuildConsumableLedger
 VERSION  = $(shell grep '## Version' $(ADDON).toc | sed 's/.*: //')
 OUTDIR  := dist
-SRCDIRS := Core Data Locale Pricing Ledger Reimbursement Tracking UI Testing
+SRCDIRS := Core Data Locale Pricing Ledger Reimbursement Tracking UI
 
 WOW_ADDONS := $(HOME)/.steam/steam/steamapps/compatdata/2832488321/pfx/drive_c/Program Files (x86)/World of Warcraft/_retail_/Interface/AddOns
 
 .DEFAULT_GOAL := help
-.PHONY: help release zip deploy clean test
-
-LUA ?= $(shell command -v lua5.4 lua5.3 lua5.1 luajit lua 2>/dev/null | head -1)
+.PHONY: help release zip deploy clean
 
 help: ## Show this help message
 	@echo "$(ADDON) Makefile targets:"
@@ -64,14 +62,6 @@ deploy: ## Copy addon files into the local WoW Interface/AddOns folder
 		fi; \
 	done; \
 	echo "Deployed to $$DEST"
-
-test: ## Run headless unit tests (requires lua interpreter)
-	@if [ -z "$(LUA)" ]; then \
-		echo "No lua interpreter found. Install lua5.4 (sudo apt install lua5.4) or luajit."; \
-		exit 1; \
-	fi; \
-	echo "Using $(LUA)"; \
-	$(LUA) tests/run_tests.lua
 
 clean: ## Remove the dist/ build directory
 	@rm -rf $(OUTDIR)
