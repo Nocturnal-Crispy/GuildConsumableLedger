@@ -41,8 +41,17 @@ GCL.L = {
     UI_BTN_MAIL = "Mail",
     UI_BTN_CREDIT = "Credit",
     UI_BTN_EXPORT = "Export",
+    UI_BTN_MAIL_ALL = "Mail All",
+    UI_BTN_CREDIT_ALL = "Credit All",
+
+    UI_TAB_LOGS = "Logs",
+    UI_TAB_PEOPLE = "By Person",
+    UI_COL_ENTRIES = "Entries",
+    UI_COL_OWED = "Owed",
+    UI_COL_PAID = "Paid",
 
     UI_EMPTY = "No consumable drops recorded yet.",
+    UI_PEOPLE_EMPTY = "No providers with recorded contributions.",
     UI_STALE_TAG = "|cFFFFAA00stale|r",
     UI_NOPRICE_TAG = "|cFFFF6060no price|r",
 
@@ -73,9 +82,15 @@ GCL.L = {
     SLASH_SETTLE = "  settle <name>  - bulk-credit unpaid entries for <name>",
 
     MAIL_SUBJECT_PREFIX = "Consumable reimbursement",
+    MAIL_SUBJECT_BULK = "Consumable reimbursement (%d entries)",
     MAIL_PREFILLED = "Mail prefilled — review then click Send.",
+    MAIL_PREFILLED_BULK = "Aggregated mail prefilled for %s — review then click Send.",
     MAIL_QUEUED = "Visit a mailbox to send the prefilled mail.",
+    MAIL_QUEUED_BULK = "Visit a mailbox to send the aggregated mail for %s.",
     MAIL_ALREADY_PAID = "Entry is already settled.",
+    MAIL_NO_UNPAID = "No unpaid entries for %s.",
+    MAIL_BULK_CEILING_HIT = "Aggregated total %s for %s exceeds the per-mail ceiling — use Credit All or settle individually.",
+    MAIL_BAD_RECIPIENT = "Cannot mail aggregated payment without a valid recipient.",
     MAIL_PENDING_REPLACED = "Replacing earlier pending mail (only one queue slot).",
     MAIL_MONEY_CAPPED = "Cost %s exceeds the prefill ceiling — left mail money empty for officer to set.",
     LOG_CREDITED_BULK = "Credited %d entries totaling %s.",
