@@ -33,7 +33,7 @@ local PEOPLE_COLS = {
 local frame
 local logsTabBtn, peopleTabBtn
 local logsPanel, peoplePanel
-local activeTab = TAB_LOGS
+local activeTab = TAB_PEOPLE
 
 -- Logs panel state
 local logsRowPool = {}
