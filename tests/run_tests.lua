@@ -67,6 +67,7 @@ loadModule("Pricing/CostCalculator.lua")
 loadModule("Ledger/LedgerStore.lua")
 loadModule("Ledger/BalanceCalculator.lua")
 loadModule("Reimbursement/BankCredit.lua")
+loadModule("Reimbursement/MailPayer.lua")
 loadModule("Reimbursement/ReportExporter.lua")
 loadModule("Core/Comms.lua")
 loadModule("Tracking/HandoutTracker.lua")
@@ -76,6 +77,7 @@ loadModule("Tracking/HandoutTracker.lua")
 loadModule("UI/MemberPanel.lua")
 loadModule("UI/SettingsPanel.lua")
 loadModule("UI/LearnDialog.lua")
+loadModule("UI/MainFrame.lua")
 
 GCL:InitDB()
 GCL.AuctionatorAdapter:Probe()
@@ -598,6 +600,190 @@ do
     local ok2, err = GCL.LearnDialog:Save(999992, "Fake Recipe")
     ok("unknown recipe rejected", ok2 == false)
     ok("error string returned", err == "unknown recipe")
+end
+
+suite("MainFrame: AggregateByProvider groups entries per provider")
+do
+    resetStore()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    -- Two unpaid for Alchy, one unpaid for Other, one already-paid for Alchy.
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    local paid = GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:MarkPaid(paid.id, "credited", paid.matsCost)
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-2-BBB", providerName = "Other-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+
+    local rows = GCL.MainFrame:AggregateByProvider()
+    eq("two providers", #rows, 2)
+
+    local byName = {}
+    for _, r in ipairs(rows) do byName[r.providerName] = r end
+
+    local alchy = byName["Alchy-TestRealm"]
+    ok("Alchy row present", alchy ~= nil)
+    eq("Alchy total entries", alchy.count, 3)
+    eq("Alchy unpaid count", alchy.unpaidCount, 2)
+    eq("Alchy owed", alchy.owed, 450000)
+    eq("Alchy paid", alchy.paid, 225000)
+    eq("Alchy unpaidIDs length", #alchy.unpaidIDs, 2)
+
+    local other = byName["Other-TestRealm"]
+    ok("Other row present", other ~= nil)
+    eq("Other count", other.count, 1)
+    eq("Other unpaidCount", other.unpaidCount, 1)
+    eq("Other owed", other.owed, 225000)
+    eq("Other paid", other.paid, 0)
+end
+
+suite("MainFrame: AggregateByProvider on empty ledger")
+do
+    resetStore()
+    local rows = GCL.MainFrame:AggregateByProvider()
+    eq("zero rows when ledger empty", #rows, 0)
+end
+
+suite("MailPayer: CollectUnpaidFor filters by provider and unpaid")
+do
+    resetStore()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    -- Mark second one paid so it should be excluded from the draft
+    local store = GCL:GetRealmStore()
+    GCL.LedgerStore:MarkPaid(store.entries[2].id, "credited", store.entries[2].matsCost)
+    -- Add unrelated provider that should not leak in
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-2-BBB", providerName = "Other-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+
+    local draft = GCL.MailPayer:CollectUnpaidFor("Alchy-TestRealm")
+    eq("count = 1", draft.count, 1)
+    eq("total = 225000", draft.total, 225000)
+    eq("entryIDs length = 1", #draft.entryIDs, 1)
+    eq("draft providerName preserved", draft.providerName, "Alchy-TestRealm")
+
+    local none = GCL.MailPayer:CollectUnpaidFor("Nobody")
+    eq("unknown provider count = 0", none.count, 0)
+    eq("unknown provider total = 0", none.total, 0)
+
+    local nilDraft = GCL.MailPayer:CollectUnpaidFor(nil)
+    eq("nil provider count = 0", nilDraft.count, 0)
+end
+
+suite("MailPayer: PayAll returns false when no unpaid entries")
+do
+    resetStore()
+    local result = GCL.MailPayer:PayAll("Nobody-TestRealm")
+    ok("returns false on empty draft", result == false)
+end
+
+suite("MailPayer: ExceedsCeiling guards aggregated mail")
+do
+    ok("zero is fine", GCL.MailPayer:ExceedsCeiling(0) == false)
+    ok("just under ceiling is fine",
+        GCL.MailPayer:ExceedsCeiling(GCL.MailPayer.MAIL_MONEY_CEILING) == false)
+    ok("over ceiling is rejected",
+        GCL.MailPayer:ExceedsCeiling(GCL.MailPayer.MAIL_MONEY_CEILING + 1) == true)
+end
+
+suite("MailPayer: PayAll refuses bulk mail above ceiling")
+do
+    resetStore()
+    local store = GCL:GetRealmStore()
+    -- Manually insert a single entry whose cost exceeds the ceiling so we
+    -- don't have to compute via Auctionator stubs.
+    local huge = GCL.MailPayer.MAIL_MONEY_CEILING + 50000  -- 5g over ceiling
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA",
+        providerName = "Bigspender-TestRealm",
+        category = "feast", spellID = 0,
+        recipeName = "Whale-Sized Feast",
+        matsCost = huge,
+        pricingSnapshot = { reagents = {}, priceSource = "manual" },
+    })
+    -- Without a mailbox open the queue path also rejects via prefillBulk only
+    -- on MAIL_SHOW, but PayAll itself returns true (queued). Force at-mailbox
+    -- by stubbing MailFrame:IsShown so we exercise the immediate prefill path.
+    _G.MailFrame = { IsShown = function() return true end }
+    local result = GCL.MailPayer:PayAll("Bigspender-TestRealm")
+    _G.MailFrame = nil
+    ok("PayAll returns false when total exceeds ceiling", result == false)
+    -- Entry must remain unpaid — the bug we are guarding against was marking
+    -- mailed despite the ceiling having zeroed the gold field.
+    eq("entry untouched", store.entries[1].paymentStatus, "unpaid")
+end
+
+suite("MailPayer: PayAll refuses invalid recipient sentinels")
+do
+    ok("nil rejected", GCL.MailPayer:PayAll(nil) == false)
+    ok("empty string rejected", GCL.MailPayer:PayAll("") == false)
+    ok("? sentinel rejected", GCL.MailPayer:PayAll("?") == false)
+end
+
+suite("MailPayer: BuildBulkBody renders total + per-entry lines")
+do
+    resetStore()
+    stubs.setMockPrices({ [222731] = 50000, [222730] = 25000, [222729] = 10000 })
+    local cost, snap = GCL.CostCalculator:Resolve("Feast of the Midnight Masquerade")
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    GCL.LedgerStore:Record({
+        providerGUID = "Player-1-AAA", providerName = "Alchy-TestRealm",
+        category = "feast", spellID = 457284,
+        recipeName = "Feast of the Midnight Masquerade",
+        matsCost = cost, pricingSnapshot = snap,
+    })
+    stubs.clearMockPrices()
+
+    local draft = GCL.MailPayer:CollectUnpaidFor("Alchy-TestRealm")
+    local body = GCL.MailPayer:BuildBulkBody(draft)
+    ok("body mentions count", body:find("2 contribution", 1, true) ~= nil)
+    ok("body mentions total 45g", body:find("Total: 45g", 1, true) ~= nil)
+    -- Two per-entry lines (one per recorded drop)
+    local lines = 0
+    for _ in body:gmatch("%- 20") do lines = lines + 1 end
+    eq("two per-entry lines", lines, 2)
 end
 
 suite("LearnDialog: IsActive honours expiry")
