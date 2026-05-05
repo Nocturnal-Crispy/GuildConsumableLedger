@@ -5,9 +5,17 @@ SRCDIRS := Core Data Locale Pricing Ledger Tracking UI Testing
 
 WOW_ADDONS := $(HOME)/.steam/steam/steamapps/compatdata/2832488321/pfx/drive_c/Program Files (x86)/World of Warcraft/_retail_/Interface/AddOns
 
-.PHONY: release zip deploy clean
+.DEFAULT_GOAL := help
+.PHONY: help release zip deploy clean
 
-release:
+help: ## Show this help message
+	@echo "$(ADDON) Makefile targets:"
+	@echo
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo
+	@echo "Current version: $(VERSION)"
+
+release: ## Bump patch version, commit, tag v<version>, and push (triggers GitHub release)
 	@OLD=$$(grep '## Version' $(ADDON).toc | sed 's/.*: //'); \
 	echo "Current version: $$OLD"; \
 	if echo "$$OLD" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
@@ -29,7 +37,7 @@ release:
 	git push origin "v$$NEW_VERSION"; \
 	echo "GitHub Actions will build the release ZIP and attach it to the tag."
 
-zip:
+zip: ## Build the release ZIP locally into dist/
 	@rm -rf $(OUTDIR)
 	@VER=$(VERSION); \
 	echo "Building $(ADDON)-$$VER.zip..."; \
@@ -42,7 +50,7 @@ zip:
 	rm -rf "$(OUTDIR)/$(ADDON)"; \
 	echo "Created $(OUTDIR)/$(ADDON)-$$VER.zip"
 
-deploy:
+deploy: ## Copy addon files into the local WoW Interface/AddOns folder
 	@echo "Deploying to WoW AddOns..."
 	@DEST="$(WOW_ADDONS)/$(ADDON)"; \
 	mkdir -p "$$DEST"; \
@@ -55,5 +63,5 @@ deploy:
 	done; \
 	echo "Deployed to $$DEST"
 
-clean:
+clean: ## Remove the dist/ build directory
 	@rm -rf $(OUTDIR)
